@@ -181,39 +181,63 @@ def _course_url(classroom_id, university_id):
     return f'{API_BASE}/v2/web/studentLog/{classroom_id}?{query}'
 
 
-def choose_course(courses, university_id):
-    """按编号、名称关键词或粘贴课程主页链接选择课程。"""
+def choose_courses(courses, university_id):
+    """按编号、名称关键词或课程链接选择一批课程，保持输入顺序。"""
     if not courses:
-        return None
+        return []
     info(f'已找到 {len(courses)} 门课程：')
     for index, course in enumerate(courses, start=1):
         print(f"  {index:>2}. {course['name']}")
 
     while True:
-        choice = input('\n输入课程编号或名称关键词（也可粘贴课程主页链接，输入 q 退出）: ').strip()
+        choice = input(
+            '\n输入课程编号、名称关键词或课程主页链接；多门课程用逗号分隔，输入 q 结束: '
+        ).strip()
         if choice.lower() in ('q', 'quit', '退出'):
-            return None
-        match = re.search(r'/studentLog/(\d+)', choice)
-        if match:
-            classroom_id = match.group(1)
-            selected = next((course for course in courses
-                             if course['classroom_id'] == classroom_id), None)
-            if selected:
-                return selected, _course_url(classroom_id, university_id)
-            warn('该链接中的课程不在当前账号课程列表中，请重新选择。')
-            continue
-        if choice.isdigit() and 1 <= int(choice) <= len(courses):
-            selected = courses[int(choice) - 1]
-            return selected, _course_url(selected['classroom_id'], university_id)
+            return []
 
-        matches = [course for course in courses if choice.casefold() in course['name'].casefold()]
-        if len(matches) == 1:
-            selected = matches[0]
-            return selected, _course_url(selected['classroom_id'], university_id)
-        if len(matches) > 1:
-            info('匹配到多门课程，请输入对应编号：')
-            for course in matches:
-                index = courses.index(course) + 1
-                print(f"  {index:>2}. {course['name']}")
-        else:
-            warn('没有匹配到课程，请输入列表中的编号或名称关键词。')
+        tokens = [token.strip() for token in re.split(r'[,，;；]+', choice) if token.strip()]
+        if not tokens:
+            warn('请输入至少一个课程编号或名称；输入 q 可结束。')
+            continue
+
+        selected_courses = []
+        selected_ids = set()
+        invalid = False
+        for token in tokens:
+            match = re.search(r'/studentLog/(\d+)', token)
+            if match:
+                classroom_id = match.group(1)
+                selected = next((course for course in courses
+                                 if course['classroom_id'] == classroom_id), None)
+            elif token.isdigit() and 1 <= int(token) <= len(courses):
+                selected = courses[int(token) - 1]
+            else:
+                matches = [course for course in courses
+                           if token.casefold() in course['name'].casefold()]
+                if len(matches) == 1:
+                    selected = matches[0]
+                elif len(matches) > 1:
+                    warn(f'“{token}”匹配到多门课程，请改用课程编号：')
+                    for course in matches:
+                        index = courses.index(course) + 1
+                        print(f"  {index:>2}. {course['name']}")
+                    invalid = True
+                    continue
+                else:
+                    selected = None
+
+            if selected is None:
+                warn(f'没有匹配到“{token}”，请检查课程编号、名称或链接。')
+                invalid = True
+                continue
+            classroom_id = selected['classroom_id']
+            if classroom_id not in selected_ids:
+                selected_ids.add(classroom_id)
+                selected_courses.append(
+                    (selected, _course_url(classroom_id, university_id))
+                )
+
+        if not invalid and selected_courses:
+            info(f'本批次按顺序选择了 {len(selected_courses)} 门课程。')
+            return selected_courses

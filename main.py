@@ -39,29 +39,34 @@ def _run_application():
         input('按 Enter 退出...')
         return
 
-    selected = auth.choose_course(courses, auth._university_id(driver))
-    if not selected:
-        info('已取消课程选择。')
-        driver.quit()
-        return
-    course, course_url = selected
-    info(f"已选择课程：{course['name']}")
+    university_id = auth._university_id(driver)
+    while True:
+        batch = auth.choose_courses(courses, university_id)
+        if not batch:
+            info('已结束课程选择。')
+            break
 
-    try:
-        driver.get(course_url)
-        time.sleep(3)
-        click_score_tab(driver)  # 兼容旧版页面；新版列表由 runner 切换。
-        if is_list_page(driver):
-            runner.auto_answer_list(driver, course_url)
-        elif discussion.is_discussion_page(driver):
-            if DEEPSEEK_API_KEY:
-                discussion.auto_answer_discussion(driver)
-            else:
-                warn('未配置 DeepSeek API Key，跳过讨论；视频和图文仍可使用。')
-        else:
-            warn('未识别到课程列表；作业和考试页面需要手动完成。')
-    except Exception as exc:
-        error(f'处理课程时发生错误：{exc}')
+        for batch_index, (course, course_url) in enumerate(batch, start=1):
+            info(f"开始处理本批第 {batch_index}/{len(batch)} 门课程：{course['name']}")
+            try:
+                driver.get(course_url)
+                time.sleep(3)
+                click_score_tab(driver)  # 兼容旧版页面；新版列表由 runner 切换。
+                if is_list_page(driver):
+                    runner.auto_answer_list(driver, course_url)
+                elif discussion.is_discussion_page(driver):
+                    if DEEPSEEK_API_KEY:
+                        discussion.auto_answer_discussion(driver)
+                    else:
+                        warn('未配置 DeepSeek API Key，跳过讨论；视频和图文仍可使用。')
+                else:
+                    warn('未识别到课程列表；作业和考试页面需要手动完成。')
+            except Exception as exc:
+                error(f"处理课程“{course['name']}”时发生错误：{exc}")
+                continue
+            info(f"课程“{course['name']}”处理结束。")
+
+        info('当前批次课程已处理完毕，可以继续选择其他课程。')
 
     info('浏览器保持打开')
     input('按 Enter 退出...')
