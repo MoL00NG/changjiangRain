@@ -10,28 +10,38 @@
 
 ### 1. 安装必需软件
 
-安装 **64 位 Python 3.10 或更高版本**、Microsoft Edge 和 Git for Windows。安装 Python 时勾选 **Add Python to PATH**。
+安装 **64 位 Python 3.10 或更高版本**和 Microsoft Edge。安装 Python 时勾选 **Add Python to PATH**。Git 不是必需软件，只有使用下面的 Git 克隆方式时才需要安装。
 
-安装后重新打开 PowerShell，确认 Python 和 Git 可用：
+安装后重新打开 PowerShell，确认 Python 可用：
 
 ```powershell
 python --version
-git --version
 ```
 
 如果提示“无法识别”，请重新安装对应软件并重开 PowerShell。
 
-### 2. 下载项目
+### 2. 下载并解压项目（推荐）
 
-打开 PowerShell，逐行复制执行：
+1. 打开 [项目 GitHub 页面](https://github.com/MoL00NG/changjiangRain)。
+2. 点击绿色 **Code** 按钮，再点击 **Download ZIP**。
+3. 下载完成后，在资源管理器中右键 ZIP 文件，选择 **全部提取**；将文件夹解压到桌面。
+4. 打开 PowerShell，进入解压后的项目目录：
+
+```powershell
+cd "$HOME\Desktop\changjiangRain-main"
+```
+
+如果你把文件夹解压到了其他位置，请把上面的路径换成实际位置。也可以在资源管理器中打开解压出的文件夹，在地址栏输入 `powershell` 并按 Enter，即可在该目录打开 PowerShell。
+
+#### 备用方式：使用 Git 克隆
+
+如果你已安装 Git，也可以在 PowerShell 中运行：
 
 ```powershell
 cd $HOME\Desktop
 git clone https://github.com/MoL00NG/changjiangRain.git
 cd changjiangRain
 ```
-
-如果不想安装 Git，也可以在 GitHub 项目页面点 **Code → Download ZIP**，解压到桌面，然后在 PowerShell 中进入解压后的项目文件夹。
 
 ### 3. 首次启动并自动安装运行环境
 
@@ -86,20 +96,22 @@ Cookie 等同于账号登录凭证。不要把 `cache/cookies.json` 上传、截
 每次打开 PowerShell 后执行：
 
 ```powershell
-cd $HOME\Desktop\changjiangRain
+cd "$HOME\Desktop\changjiangRain-main"
 python .\main.py
 ```
 
 无需手动激活虚拟环境，也无需每次重新填写 Cookie 或课程链接。登录过期时，程序会重新打开登录页面让你扫码。
 
-更新项目代码时，在项目文件夹执行：
+如果你使用 Git 克隆安装，更新代码时在项目文件夹执行：
 
 ```powershell
 git pull --ff-only
 python .\main.py
 ```
 
-如果项目依赖有变化，启动器会根据 `requirements.txt` 自动更新虚拟环境。
+如果你使用 ZIP 安装，更新时重新从 GitHub 下载最新版 ZIP 并解压到一个新文件夹；确认新版能正常启动后，再决定是否移除旧文件夹。新版首次运行会自动准备虚拟环境与依赖，登录状态过期时重新扫码即可。不要把 `cache/cookies.json` 上传或分享。
+
+无论使用哪种方式，如果项目依赖有变化，启动器都会根据 `requirements.txt` 自动更新虚拟环境。
 
 ## 可选：调整图文处理间隔
 
