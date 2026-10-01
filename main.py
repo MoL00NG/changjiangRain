@@ -2,7 +2,36 @@
 """程序入口：自动准备虚拟环境、扫码登录和选择课程。"""
 
 
+def _configure_deepseek_key():
+    """在导入配置模块前询问是否本次启用讨论用 API Key。"""
+    import getpass
+    import os
+
+    key = os.environ.get('DEEPSEEK_API_KEY', '').strip()
+    if key:
+        choice = input(
+            '检测到已设置 DeepSeek API Key：[Enter] 沿用，[r] 重新输入，[n] 本次跳过讨论: '
+        ).strip().lower()
+        if choice in ('n', 'no', '否'):
+            key = ''
+        elif choice in ('r', '重新输入'):
+            key = getpass.getpass('请输入 DeepSeek API Key（输入隐藏，直接回车跳过）: ').strip()
+    else:
+        key = getpass.getpass(
+            '可选：请输入 DeepSeek API Key 以启用讨论功能（输入隐藏，直接回车跳过）: '
+        ).strip()
+
+    if key:
+        os.environ['DEEPSEEK_API_KEY'] = key
+        print('[信息] 本次已启用 DeepSeek 讨论功能；Key 不会写入项目文件。')
+    else:
+        os.environ.pop('DEEPSEEK_API_KEY', None)
+        print('[信息] 本次跳过 DeepSeek 讨论；视频和图文功能仍可使用。')
+
+
 def _run_application():
+    _configure_deepseek_key()
+
     import time
 
     import auth

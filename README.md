@@ -65,22 +65,23 @@ Cookie 等同于账号登录凭证。不要把 `cache/cookies.json` 上传、截
 
 ### 6. 处理课程内容
 
-程序会依次打开所选课程并扫描未完成的讨论、视频和图文。讨论功能需要 DeepSeek API Key；视频和图文不需要。没有配置 Key 时，程序会跳过讨论并继续处理其他支持的内容。
+程序会在处理课程前询问是否使用 DeepSeek API Key。输入 Key 时终端不会显示字符；直接按 Enter 就跳过讨论，视频和图文仍可继续。Key 只在本次程序运行时保存在内存中，不会写入项目文件。
+
+如果已设置 `DEEPSEEK_API_KEY` 环境变量，启动时可选择沿用、重新输入或本次跳过。随后程序会依次打开所选课程并扫描未完成的讨论、视频和图文。
 
 作业和考试不会被程序打开或自动完成。每批课程处理完后可以继续添加下一批；输入 `q` 结束选课，再按 PowerShell 中的提示按 Enter 退出。Edge 会保持打开，方便你查看页面状态。
 
 ## 配置讨论功能（可选）
 
-只有希望使用自动生成讨论发言时才需要 DeepSeek API Key。
+只有希望使用自动生成讨论发言时才需要 DeepSeek API Key。最简单的方式是在程序启动时按提示输入；不需要讨论功能时直接按 Enter 即可。
 
-1. 登录 DeepSeek 开放平台，在 **API Keys** 页面创建并复制一个 Key。
-2. 在 PowerShell 中设置当前窗口变量，将示例替换为自己的 Key：
+也可以预先在 PowerShell 设置环境变量，这样启动时可以选择沿用：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = "sk-你的Key"
 ```
 
-3. 在同一个 PowerShell 窗口运行：
+要创建 Key，请登录 DeepSeek 开放平台，在 **API Keys** 页面创建并复制。设置环境变量后，在同一个 PowerShell 窗口运行：
 
 ```powershell
 cd $HOME\Desktop\changjiangRain
