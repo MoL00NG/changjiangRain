@@ -1,0 +1,6 @@
+cnocr>=2.3
+onnxruntime
+pillow
+numpy
+selenium
+requests

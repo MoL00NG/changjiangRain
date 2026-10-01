@@ -1,0 +1,14 @@
+[
+  {
+    "Name": "csrftoken",
+    "Value": "你的_csrftoken",
+    "Domain": "changjiang.yuketang.cn",
+    "Path": "/"
+  },
+  {
+    "Name": "sessionid",
+    "Value": "你的_sessionid",
+    "Domain": "changjiang.yuketang.cn",
+    "Path": "/"
+  }
+]
