@@ -73,22 +73,13 @@ Cookie 等同于账号登录凭证。不要把 `cache/cookies.json` 上传、截
 
 ## 配置讨论功能（可选）
 
-只有希望使用自动生成讨论发言时才需要 DeepSeek API Key。最简单的方式是在程序启动时按提示输入；不需要讨论功能时直接按 Enter 即可。
+只有希望自动生成讨论发言时才需要 DeepSeek API Key。启动程序后会出现 Key 提示：
 
-也可以预先在 PowerShell 设置环境变量，这样启动时可以选择沿用：
+- 还没有设置 Key：在提示处粘贴 Key 并按 Enter。输入内容不会显示在屏幕上。
+- 暂时不需要自动讨论：直接按 Enter 留空，程序会跳过讨论，继续处理视频和图文。
+- 已在 Windows 中设置 `DEEPSEEK_API_KEY`：按 Enter 沿用；输入 `r` 可重新输入；输入 `n` 可在本次运行中跳过。
 
-```powershell
-$env:DEEPSEEK_API_KEY = "sk-你的Key"
-```
-
-要创建 Key，请登录 DeepSeek 开放平台，在 **API Keys** 页面创建并复制。设置环境变量后，在同一个 PowerShell 窗口运行：
-
-```powershell
-cd $HOME\Desktop\changjiangRain
-python .\main.py
-```
-
-如果希望以后新开的 PowerShell 窗口也能使用，可运行 `setx DEEPSEEK_API_KEY "sk-你的Key"`，然后关闭并重新打开 PowerShell。不要将真实 Key 写入代码、提交到 GitHub 或分享给他人。
+如需创建 Key，请登录 DeepSeek 开放平台，在 **API Keys** 页面创建并复制。程序只在当前运行期间使用输入的 Key，不会保存到项目文件；因此不需要修改 `config.py` 或把 Key 写进 README。请勿将真实 Key 发给他人或提交到 GitHub。
 
 ## 以后如何启动
 
