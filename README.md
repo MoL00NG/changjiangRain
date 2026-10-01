@@ -12,17 +12,26 @@
 
 #### 安装 Python
 
-1. 打开 [Python 官方 Windows 下载页](https://www.python.org/downloads/windows/)。
-2. 选择最新稳定版的 **Windows installer (64-bit)** 下载。不要下载 *embeddable package*（嵌入式压缩包）。本项目需要 64 位 Python 3.10 或更高版本。
-3. 双击下载的安装程序。在安装窗口中勾选 **Add python.exe to PATH**，再点击 **Install Now**。
-4. 安装完成后，关闭并重新打开 PowerShell，检查版本和位数：
+推荐在 PowerShell 中安装：
 
 ```powershell
-python --version
-python -c "import struct; print(struct.calcsize('P') * 8)"
+winget install 9NQ7512CXL7T -e --accept-package-agreements --disable-interactivity
 ```
 
-第一条应显示 Python 3.10 或更高版本，第二条应显示 `64`。如果提示找不到 `python`，请确认安装时勾选了 **Add python.exe to PATH**，并重新打开 PowerShell。
+这一步会安装 Python 官方的 Windows 安装管理器。完成后关闭并重新打开 PowerShell，再安装 Python 3.14：
+
+```powershell
+py install 3.14
+```
+
+安装完成后检查版本和位数：
+
+```powershell
+py -3.14 --version
+py -3.14 -c "import struct; print(struct.calcsize('P') * 8)"
+```
+
+第一条应显示 Python 3.14，第二条应显示 `64`。如果 PowerShell 提示找不到 `winget`，请先通过 Microsoft Store 更新或安装 **应用安装程序（App Installer）**，然后重开 PowerShell 重试。官方也提供[网页下载安装方式](https://www.python.org/downloads/windows/)：选择 **Windows installer (64-bit)**，运行后勾选 **Add python.exe to PATH** 并安装。更多说明见 [Python 官方 Windows 安装文档](https://docs.python.org/3/using/windows.html)。
 
 #### 安装浏览器
 
