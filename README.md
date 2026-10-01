@@ -10,15 +10,23 @@
 
 ### 1. 安装必需软件
 
-安装 **64 位 Python 3.10 或更高版本**和 Microsoft Edge。安装 Python 时勾选 **Add Python to PATH**。Git 不是必需软件，只有使用下面的 Git 克隆方式时才需要安装。
+#### 安装 Python
 
-安装后重新打开 PowerShell，确认 Python 可用：
+1. 打开 [Python 官方 Windows 下载页](https://www.python.org/downloads/windows/)。
+2. 选择最新稳定版的 **Windows installer (64-bit)** 下载。不要下载 *embeddable package*（嵌入式压缩包）。本项目需要 64 位 Python 3.10 或更高版本。
+3. 双击下载的安装程序。在安装窗口中勾选 **Add python.exe to PATH**，再点击 **Install Now**。
+4. 安装完成后，关闭并重新打开 PowerShell，检查版本和位数：
 
 ```powershell
 python --version
+python -c "import struct; print(struct.calcsize('P') * 8)"
 ```
 
-如果提示“无法识别”，请重新安装对应软件并重开 PowerShell。
+第一条应显示 Python 3.10 或更高版本，第二条应显示 `64`。如果提示找不到 `python`，请确认安装时勾选了 **Add python.exe to PATH**，并重新打开 PowerShell。
+
+#### 安装浏览器
+
+电脑还需要安装 Microsoft Edge，用于扫码登录和打开雨课堂页面。Git 不是必需软件，只有使用下面的 Git 克隆方式时才需要安装。
 
 ### 2. 下载并解压项目（推荐）
 
