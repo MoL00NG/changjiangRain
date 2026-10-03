@@ -25,27 +25,38 @@ def _cookie_map(driver):
 
 
 def _university_id(driver):
+    """从当前课程页面取得学校编号；登录首页缺少该信息时返回空值。
+
+    不能在这里硬编码其他学校的编号：登录校验发生在首页，带错编号会把
+    有效会话误判为失效，并可能触发登录页循环跳转。
+    """
     query_value = (parse_qs(urlparse(driver.current_url or '').query)
                    .get('university_id') or [None])[0]
     cookies = _cookie_map(driver)
-    return str(query_value or cookies.get('university_id') or cookies.get('uv_id') or UNIVERSITY_ID)
+    value = query_value or cookies.get('university_id') or cookies.get('uv_id') or UNIVERSITY_ID
+    return str(value).strip() if value else ''
 
 
-def _api_headers(csrf, session, university_id):
-    return {
+def _api_headers(csrf, session, university_id=None):
+    cookie_parts = [f'csrftoken={csrf}', f'sessionid={session}', 'platform_id=3']
+    headers = {
         'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'),
         'Accept': 'application/json, text/plain, */*',
         'Content-Type': 'application/json',
-        'Cookie': f'csrftoken={csrf}; sessionid={session}; university_id={university_id}; platform_id=3',
+        'Cookie': '; '.join(cookie_parts),
         'x-csrftoken': csrf,
         'X-CSRFToken': csrf,
-        'university-id': university_id,
         'platform-id': '3',
         'xtbz': 'ykt',
         'x-client': 'web',
         'Referer': HOME_URL,
     }
+    if university_id:
+        cookie_parts.insert(2, f'university_id={university_id}')
+        headers['Cookie'] = '; '.join(cookie_parts)
+        headers['university-id'] = str(university_id)
+    return headers
 
 
 def _session_is_valid(driver):
@@ -65,6 +76,15 @@ def _session_is_valid(driver):
         return bool(re.search(r'"user_id"\s*:\s*\d+', body))
     except requests.RequestException:
         return False
+
+
+def _clear_browser_auth_cookies(driver):
+    """只清除自动化 Edge 当前会话中的认证 Cookie，不触碰本机缓存文件。"""
+    for name in ('csrftoken', 'sessionid'):
+        try:
+            driver.delete_cookie(name)
+        except Exception:
+            pass
 
 
 def _save_auth_cookies(driver):
@@ -110,6 +130,16 @@ def wait_for_login(driver, timeout_seconds=240):
         info('已复用本机有效的雨课堂登录状态')
         return True
 
+    cached_cookies = _cookie_map(driver)
+    if cached_cookies.get('csrftoken') or cached_cookies.get('sessionid'):
+        warn('本机 Cookie 缓存未通过服务器验证，已仅在本次浏览器会话中清除旧登录状态。')
+        _clear_browser_auth_cookies(driver)
+        try:
+            driver.get(HOME_URL)
+            time.sleep(2)
+        except Exception:
+            pass
+
     info('请在刚打开的 Edge 窗口中扫码登录长江雨课堂。')
     info(f'登录等待时间为 {timeout_seconds // 60} 分钟；Cookie 只保存在本机。')
     deadline = time.monotonic() + timeout_seconds
@@ -141,6 +171,22 @@ def wait_for_login(driver, timeout_seconds=240):
     return False
 
 
+def _find_university_id(value):
+    """从课程列表响应的单项中提取学校编号，兼容不同页面版本的字段位置。"""
+    if not isinstance(value, dict):
+        return ''
+    for key in ('university_id', 'universityId', 'uv_id'):
+        candidate = value.get(key)
+        if candidate not in (None, ''):
+            return str(candidate)
+    for child in value.values():
+        if isinstance(child, dict):
+            candidate = _find_university_id(child)
+            if candidate:
+                return candidate
+    return ''
+
+
 def list_courses(driver):
     """从雨课堂课程列表接口读取用户可访问课程。"""
     cookies = _cookie_map(driver)
@@ -164,24 +210,30 @@ def list_courses(driver):
             name = course.get('name') or item.get('name') or f'课程 {classroom_id or "未知"}'
             if classroom_id and str(classroom_id) not in seen:
                 seen.add(str(classroom_id))
-                courses.append({'classroom_id': str(classroom_id), 'name': str(name)})
+                courses.append({
+                    'classroom_id': str(classroom_id),
+                    'name': str(name),
+                    'university_id': _find_university_id(item) or _find_university_id(course),
+                })
         return courses
     except (requests.RequestException, ValueError, TypeError) as exc:
         error(f'读取课程列表失败：{exc}')
         return None
 
 
-def _course_url(classroom_id, university_id):
-    query = urlencode({
-        'university_id': university_id,
+def _course_url(classroom_id, university_id=None):
+    query_data = {
         'platform_id': '3',
         'classroom_id': classroom_id,
         'content_url': '',
-    })
+    }
+    if university_id:
+        query_data['university_id'] = university_id
+    query = urlencode(query_data)
     return f'{API_BASE}/v2/web/studentLog/{classroom_id}?{query}'
 
 
-def choose_courses(courses, university_id):
+def choose_courses(courses, university_id=None):
     """按编号、名称关键词或课程链接选择一批课程，保持输入顺序。"""
     if not courses:
         return []
@@ -234,8 +286,9 @@ def choose_courses(courses, university_id):
             classroom_id = selected['classroom_id']
             if classroom_id not in selected_ids:
                 selected_ids.add(classroom_id)
+                course_university_id = selected.get('university_id') or university_id
                 selected_courses.append(
-                    (selected, _course_url(classroom_id, university_id))
+                    (selected, _course_url(classroom_id, course_university_id))
                 )
 
         if not invalid and selected_courses:

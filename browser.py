@@ -38,7 +38,7 @@ def load_cookies_from_file(cookie_path=COOKIE_PATH):
                     pass
             selenium_cookies.append(cookie)
 
-        ok(f"成功加载 {len(selenium_cookies)} 个 Cookie")
+        ok(f"已读取 {len(selenium_cookies)} 个本机 Cookie 缓存（尚未验证登录是否有效）")
         return selenium_cookies
     except Exception as e:
         error(f"加载 Cookie 失败: {e}")
@@ -82,7 +82,7 @@ def get_driver_with_cookies(url):
 
         driver.refresh()
         time.sleep(3)
-        ok("Cookie 加载完成")
+        ok("已将本机 Cookie 缓存导入浏览器，正在验证登录状态")
 
     return driver
 

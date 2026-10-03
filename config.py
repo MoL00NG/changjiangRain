@@ -30,7 +30,7 @@ DISCUSSION_MIN_LEN = 150  # 讨论发言最少字数
 DISCUSSION_MAX_LEN = 300  # 讨论发言最多字数（AI 在此范围内自行把握篇幅）
 
 # ==================== 视频刷课参数 ====================
-UNIVERSITY_ID = "3714"      # 学校编号兜底值；运行时优先从课程链接自动读取
+UNIVERSITY_ID = ""          # 可选的学校编号兜底值；通常无需填写，运行时会从课程链接自动读取
 VIDEO_LEARNING_RATE = 40    # 每条心跳推进的播放秒数（越大刷得越快）
 VIDEO_HEARTBEAT_BATCH = 65  # 每轮发送的心跳条数
 
