@@ -87,6 +87,21 @@ def _clear_browser_auth_cookies(driver):
             pass
 
 
+def _choose_existing_account():
+    """已验证本机登录状态后，由用户决定复用还是切换账号。"""
+    while True:
+        choice = input(
+            '检测到本机已有有效的雨课堂登录账号：按 Enter 继续沿用；输入 s 切换账号；输入 q 退出： '
+        ).strip().lower()
+        if choice in ('', 'c', 'continue', '继续', '沿用'):
+            return 'continue'
+        if choice in ('s', 'switch', '切换'):
+            return 'switch'
+        if choice in ('q', 'quit', '退出'):
+            return 'quit'
+        warn('请输入 Enter、s 或 q。')
+
+
 def _save_auth_cookies(driver):
     """只保存认证所需 Cookie，原子替换文件并避免输出凭证。"""
     cookies = _cookie_map(driver)
@@ -127,8 +142,21 @@ def _save_auth_cookies(driver):
 def wait_for_login(driver, timeout_seconds=240):
     """等待用户在本地 Edge 扫码登录；认证通过后保存必要 Cookie。"""
     if _session_is_valid(driver):
-        info('已复用本机有效的雨课堂登录状态')
-        return True
+        choice = _choose_existing_account()
+        if choice == 'continue':
+            info('已沿用本机有效的雨课堂登录状态')
+            return True
+        if choice == 'quit':
+            info('已取消本次登录。')
+            return False
+
+        info('将切换账号：已仅在本次 Edge 窗口中清除当前登录状态，请扫码登录其他账号。')
+        _clear_browser_auth_cookies(driver)
+        try:
+            driver.get(HOME_URL)
+            time.sleep(2)
+        except Exception:
+            pass
 
     cached_cookies = _cookie_map(driver)
     if cached_cookies.get('csrftoken') or cached_cookies.get('sessionid'):

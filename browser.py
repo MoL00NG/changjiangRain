@@ -2,6 +2,7 @@
 """浏览器与页面操作：Cookie 加载、驱动创建、截图、翻页、提交、页面状态判断"""
 
 import json
+import os
 import time
 from datetime import datetime
 
@@ -15,6 +16,9 @@ from util import ok, warn, error, progress
 
 # ==================== Cookie 加载 ====================
 def load_cookies_from_file(cookie_path=COOKIE_PATH):
+    if not os.path.exists(cookie_path):
+        info('未发现本机 Cookie 缓存，将进入首次扫码登录流程。')
+        return None
     try:
         with open(cookie_path, 'r', encoding='utf-8') as f:
             cookies = json.load(f)
