@@ -11,7 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.options import Options
 
 from config import COOKIE_PATH, SCREENSHOT_PATH
-from util import ok, warn, error, progress
+from util import info, ok, warn, error, progress
 
 
 # ==================== Cookie 加载 ====================

@@ -1,4 +1,5 @@
 cnocr>=2.3
+rapidocr>=3.9.1,<3.10
 onnxruntime
 pillow
 numpy
