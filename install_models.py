@@ -9,18 +9,16 @@
      之后运行 python main.py 即可正常初始化 OCR，不再需要联网下载。
 """
 
+import hashlib
 import os
+import stat
 import sys
+import tempfile
 import time
 import zipfile
+from pathlib import Path
 
 import requests
-
-try:
-    import urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-except Exception:
-    pass
 
 MIRROR = os.environ.get('HF_ENDPOINT', 'https://hf-mirror.com')
 APPDATA = os.environ.get('APPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming')
@@ -30,48 +28,101 @@ REC_DIR = os.path.join(APPDATA, 'cnocr', '2.3', 'densenet_lite_136-gru')
 REC_ONNX = os.path.join(REC_DIR, 'cnocr-v2.3-densenet_lite_136-gru-epoch=004-ft-model.onnx')
 REC_ZIP_URL = (f'{MIRROR}/breezedeus/cnstd-cnocr-models/resolve/main/'
                'models/cnocr/2.3/densenet_lite_136-gru-onnx.zip')
+REC_ZIP_SHA256 = '44a92fbaea5f3df2f9dcc63ba17af0e9fc8b208027ff33578e5e7e7fe09b56e2'
 
 # 检测模型（cnstd）：独立仓库，根目录直接是模型文件
 DET_DIR = os.path.join(APPDATA, 'cnstd', '1.2', 'ppocr', 'multi_PP-OCRv6_det_small')
 DET_BASE = f'{MIRROR}/breezedeus/cnstd-ppocr-multi_PP-OCRv6_det_small/resolve/main'
 DET_FILES = [
-    ('PP-OCRv6_det_small.onnx', 8 * 1024 * 1024),
-    ('config.yaml', 0),
-    ('README.md', 0),
+    ('PP-OCRv6_det_small.onnx', 8 * 1024 * 1024,
+     '090f04abcd9d9a7498bc4ebf677e4cb9bdce1fe4197ddb7e529f1ef44e1ff94f'),
+    ('config.yaml', 0, None),
+    ('README.md', 0, None),
 ]
 
 
-def download(url, dest, min_size=0, retries=3):
-    """下载单个文件到目标路径；已存在且大小达标则跳过"""
-    if os.path.exists(dest) and os.path.getsize(dest) >= min_size:
-        print(f'[跳过] 已存在: {dest}')
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _is_verified_file(path, min_size=0, expected_sha256=None):
+    if not os.path.exists(path) or os.path.getsize(path) < min_size:
+        return False
+    if expected_sha256 and _sha256(path).lower() != expected_sha256.lower():
+        print(f'[错误] 文件校验失败: {path}')
+        print('       请手动删除该文件后重新运行，切勿使用来源不明的模型文件。')
+        return False
+    return True
+
+
+def download(url, dest, min_size=0, expected_sha256=None, retries=3):
+    """通过 HTTPS 下载文件，并在替换目标前进行大小与 SHA-256 校验。"""
+    if _is_verified_file(dest, min_size, expected_sha256):
+        print(f'[跳过] 已存在且校验通过: {dest}')
         return True
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     for attempt in range(1, retries + 1):
+        tmp = None
         try:
             print(f'[下载] {url}（第 {attempt}/{retries} 次）')
-            r = requests.get(url, stream=True, timeout=60, verify=False)
-            r.raise_for_status()
-            total = int(r.headers.get('Content-Length', 0))
-            done = 0
-            tmp = dest + '.tmp'
-            with open(tmp, 'wb') as f:
-                for chunk in r.iter_content(1024 * 256):
-                    f.write(chunk)
-                    done += len(chunk)
-                    if total:
-                        print(f'\r   进度 {done * 100 // total}%', end='', flush=True)
+            with requests.get(url, stream=True, timeout=(15, 60)) as response:
+                response.raise_for_status()
+                total = int(response.headers.get('Content-Length', 0))
+                done = 0
+                with tempfile.NamedTemporaryFile(
+                        'wb', delete=False, dir=os.path.dirname(dest),
+                        prefix='.download-', suffix='.tmp') as stream:
+                    tmp = stream.name
+                    for chunk in response.iter_content(1024 * 256):
+                        if not chunk:
+                            continue
+                        stream.write(chunk)
+                        done += len(chunk)
+                        if total:
+                            print(f'\r   进度 {done * 100 // total}%', end='', flush=True)
             print()
-            os.replace(tmp, dest)
-            if os.path.getsize(dest) >= min_size:
+            if _is_verified_file(tmp, min_size, expected_sha256):
+                os.replace(tmp, dest)
+                tmp = None
                 print(f'[完成] {os.path.basename(dest)}')
                 return True
-            print('[警告] 文件大小异常，删除后重试')
-            os.remove(dest)
+            print('[警告] 下载文件未通过完整性校验，未写入模型目录。')
         except Exception as e:
             print(f'[错误] {e}')
             time.sleep(2)
+        finally:
+            if tmp and os.path.exists(tmp):
+                os.remove(tmp)
     return False
+
+
+def _safe_extract(zip_path, destination):
+    """拒绝 ZIP Slip、符号链接与异常膨胀文件，再解压已校验的模型压缩包。"""
+    target = Path(destination).resolve()
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            entries = archive.infolist()
+            total_size = sum(entry.file_size for entry in entries)
+            if total_size > 256 * 1024 * 1024:
+                raise ValueError('压缩包解压后的总大小异常')
+            for entry in entries:
+                output = (target / entry.filename).resolve()
+                if output != target and target not in output.parents:
+                    raise ValueError(f'压缩包包含越界路径: {entry.filename}')
+                mode = entry.external_attr >> 16
+                if stat.S_ISLNK(mode):
+                    raise ValueError(f'压缩包包含符号链接: {entry.filename}')
+                if entry.compress_size and entry.file_size / entry.compress_size > 150:
+                    raise ValueError(f'压缩包条目压缩比异常: {entry.filename}')
+            archive.extractall(target)
+        return True
+    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+        print(f'[错误] 安全解压失败: {exc}')
+        return False
 
 
 def install_rec_model():
@@ -80,12 +131,12 @@ def install_rec_model():
         print(f'[跳过] 识别模型已存在: {REC_ONNX}')
         return True
     zip_path = os.path.join(os.path.dirname(REC_DIR), 'densenet_lite_136-gru-onnx.zip')
-    if not download(REC_ZIP_URL, zip_path, 10 * 1024 * 1024):
+    if not download(REC_ZIP_URL, zip_path, 10 * 1024 * 1024, REC_ZIP_SHA256):
         return False
     try:
         os.makedirs(REC_DIR, exist_ok=True)
-        with zipfile.ZipFile(zip_path) as z:
-            z.extractall(os.path.join(APPDATA, 'cnocr', '2.3'))
+        if not _safe_extract(zip_path, os.path.join(APPDATA, 'cnocr', '2.3')):
+            return False
         os.remove(zip_path)
         if os.path.exists(REC_ONNX):
             print(f'[完成] 识别模型已解压: {REC_ONNX}')
@@ -100,8 +151,10 @@ def install_rec_model():
 def install_det_model():
     """下载检测模型文件"""
     ok = True
-    for name, min_size in DET_FILES:
-        ok = download(f'{DET_BASE}/{name}', os.path.join(DET_DIR, name), min_size) and ok
+    for name, min_size, expected_sha256 in DET_FILES:
+        ok = download(
+            f'{DET_BASE}/{name}', os.path.join(DET_DIR, name), min_size, expected_sha256
+        ) and ok
     return ok
 
 
