@@ -111,7 +111,11 @@ def _find_next_item(driver, processed):
     # 新版未完成页优先；没有识别到时再兼容旧版列表。
     new_items = _find_new_list_items(driver)
     if new_items:
-        candidates = [item for item in new_items if item[3] not in processed]
+        candidates = [
+            item for item in new_items
+            if item[3] not in processed
+            and (item[1] != '讨论' or DEEPSEEK_API_KEY)
+        ]
         for li, tag, name, key in candidates:
             if tag == '讨论':
                 return li, tag, name, key
@@ -128,6 +132,8 @@ def _find_next_item(driver, processed):
         except Exception:
             continue
         if tag not in ('讨论', '视频', '图文'):
+            continue
+        if tag == '讨论' and not DEEPSEEK_API_KEY:
             continue
         if tag == '讨论' and status != '未发言':
             continue
@@ -148,6 +154,8 @@ def _find_next_item(driver, processed):
 def auto_answer_list(driver, list_url):
     """列表模式：逐个处理未完成的讨论、视频和图文，跳过作业。"""
     info("检测到学习单元列表，开始处理未完成的讨论、视频和图文；作业请手动完成...")
+    if not DEEPSEEK_API_KEY:
+        warn('未配置 DeepSeek API Key，本次直接跳过全部讨论项，不打开讨论页面。')
     scan_url = list_url
     if 'tab=unfinished' not in scan_url:
         scan_url += ('&' if '?' in scan_url else '?') + 'tab=unfinished'
@@ -172,7 +180,7 @@ def auto_answer_list(driver, list_url):
 
         li, tag, name, item_key = _find_next_item(driver, processed)
         if li is None:
-            ok("没有更多未完成（未开始/未发言/未学习/未完成）的讨论、视频或图文单元了")
+            ok("本次可处理的讨论、视频或图文单元已检查完毕（跳过项可能仍显示未完成）")
             break
 
         section(f"处理{tag}: {name}")
